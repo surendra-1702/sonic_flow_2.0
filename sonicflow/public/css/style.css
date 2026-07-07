@@ -949,6 +949,157 @@ html, body {
 .track-row:hover .track-remove { opacity: 1; }
 .track-remove:hover { color: #ef4444; }
 
+/* ─── Library Table ─── */
+.library-table {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.library-table-header {
+  display: grid;
+  grid-template-columns: 40px 1fr 1fr 1fr 60px 80px;
+  gap: 12px;
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 4px;
+}
+
+.library-row {
+  display: grid;
+  grid-template-columns: 40px 1fr 1fr 1fr 60px 80px;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.library-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.library-row-active {
+  background: rgba(0, 191, 255, 0.08);
+}
+
+.library-row-cover {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  object-fit: cover;
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.library-row-info {
+  min-width: 0;
+}
+
+.library-row-title {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.library-row-sub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.library-row-duration {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.library-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.library-row-actions button {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 50%;
+  transition: var(--transition);
+  opacity: 0;
+  line-height: 1;
+}
+
+.library-row:hover .library-row-actions button {
+  opacity: 1;
+}
+
+.library-row-actions button:hover {
+  color: var(--text);
+}
+
+.library-row-actions .liked {
+  color: var(--primary) !important;
+  opacity: 1 !important;
+}
+
+.library-row .library-row-actions .library-fav-btn.liked i {
+  font-weight: 900;
+}
+
+@media (max-width: 767px) {
+  .library-table-header {
+    display: none;
+  }
+  .library-row {
+    grid-template-columns: 40px 1fr auto;
+    gap: 8px;
+    padding: 10px 8px;
+  }
+  .library-row-album {
+    display: none;
+  }
+  .library-row-duration {
+    display: none;
+  }
+  .library-row-actions button {
+    opacity: 1;
+    padding: 8px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .library-row-actions .library-add-btn {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .library-table-header {
+    grid-template-columns: 40px 1fr 1fr 60px 60px;
+  }
+  .library-row {
+    grid-template-columns: 40px 1fr 1fr 60px 60px;
+  }
+  .library-row-album {
+    display: none;
+  }
+}
+
 /* ─── Song Card Add Button ─── */
 .song-card-add {
   position: absolute;

@@ -241,6 +241,25 @@
       return;
     }
 
+    const libraryRow = e.target.closest('.library-row');
+
+    if (libraryRow) {
+      if (action === 'library-fav') {
+        e.stopPropagation();
+        toggleLibraryFav(libraryRow.dataset.id, actionBtn);
+        return;
+      }
+      if (action === 'add-to-playlist') {
+        e.stopPropagation();
+        showAddToPlaylist(libraryRow.dataset.id);
+        return;
+      }
+      const lView = libraryRow.closest('.view');
+      const ctx = lView ? lView._context : [];
+      playSongNow(libraryRow.dataset.id, ctx);
+      return;
+    }
+
     if (albumCard) {
       window.location.hash = '#album/' + albumCard.dataset.id;
       return;
@@ -890,57 +909,121 @@
     });
   }
 
+  // ─── Library Cache ───
+  let _libraryCache = null;
+
+  async function fetchAllSongs() {
+    const allSongs = [];
+    let page = 1;
+    let pages = 1;
+    do {
+      const data = await apiFetch(`/songs?page=${page}&limit=50`);
+      allSongs.push(...data.songs);
+      pages = data.pages;
+      page++;
+    } while (page <= pages);
+    return allSongs;
+  }
+
+  function renderLibraryRow(song, likedIds) {
+    const artistName = typeof song.artist === 'object' && song.artist ? song.artist.name : (song.artist || 'Unknown');
+    const albumName = typeof song.album === 'object' && song.album ? song.album.title : '';
+    const cover = getCoverUrl(song);
+    const isLiked = likedIds.has(song._id);
+    const duration = formatTime(song.duration);
+    return `
+      <div class="library-row" data-id="${song._id}">
+        <img class="library-row-cover" src="${cover}" alt="" loading="lazy" onerror="this.style.display='none'">
+        <div class="library-row-info">
+          <div class="library-row-title">${song.title}</div>
+        </div>
+        <div class="library-row-info">
+          <div class="library-row-sub">${artistName}</div>
+        </div>
+        <div class="library-row-info library-row-album">
+          <div class="library-row-sub">${albumName}</div>
+        </div>
+        <div class="library-row-duration">${duration}</div>
+        <div class="library-row-actions">
+          <button class="library-fav-btn${isLiked ? ' liked' : ''}" data-action="library-fav" title="${isLiked ? 'Remove from favorites' : 'Add to favorites'}">
+            <i class="${isLiked ? 'fas' : 'far'} fa-heart"></i>
+          </button>
+          <button class="library-add-btn" data-action="add-to-playlist" title="Add to playlist">
+            <i class="fas fa-plus"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  async function toggleLibraryFav(songId, btn) {
+    const isLiked = btn.classList.contains('liked');
+    try {
+      if (isLiked) {
+        await apiFetch(`/favorites/${songId}`, { method: 'DELETE' });
+        btn.classList.remove('liked');
+        btn.querySelector('i').className = 'far fa-heart';
+        btn.title = 'Add to favorites';
+        if (_libraryCache) _libraryCache.likedIds.delete(songId);
+        showToast('Removed from favorites');
+      } else {
+        await apiFetch(`/favorites/${songId}`, { method: 'POST' });
+        btn.classList.add('liked');
+        btn.querySelector('i').className = 'fas fa-heart';
+        btn.title = 'Remove from favorites';
+        if (_libraryCache) _libraryCache.likedIds.add(songId);
+        showToast('Added to favorites');
+      }
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  }
+
   // ─── Library View ───
   async function loadLibraryView() {
     const lib = document.getElementById('viewLibrary');
     lib.innerHTML = skeleton(3);
 
     try {
-      const [playlistsData, favoritesData] = await Promise.all([
-        apiFetch('/playlists').catch(() => ({ playlists: [] })),
-        apiFetch('/favorites').catch(() => ({ favorites: [] })),
-      ]);
+      let allSongs;
+      let likedIds;
+
+      if (_libraryCache) {
+        allSongs = _libraryCache.songs;
+      } else {
+        allSongs = await fetchAllSongs();
+        _libraryCache = { songs: allSongs };
+      }
+      const favoritesData = await apiFetch('/favorites').catch(() => ({ favorites: [] }));
+      likedIds = new Set((favoritesData.favorites || []).map(f => f.song?._id).filter(Boolean));
+      if (_libraryCache) _libraryCache.likedIds = likedIds;
 
       let html = '<div class="home-greeting"><h1>Your Library</h1></div>';
 
-      if (favoritesData.favorites && favoritesData.favorites.length > 0) {
-        const songs = favoritesData.favorites.map((f) => f.song).filter(Boolean);
-        const cards = songs.map((s) => renderSongCard(s)).join('');
-        html += renderSection('Liked Songs', cards);
-        lib._context = songs;
-      } else {
+      if (allSongs.length === 0) {
+        html += renderEmpty('No songs in the library yet.');
+        lib.innerHTML = html;
         lib._context = [];
+        return;
       }
 
-      const playlists = playlistsData.playlists || [];
-      html += '<div class="content-section"><div class="section-header-row"><h2>Playlists</h2></div>';
-      if (playlists.length === 0) {
-        html += '<div class="empty-state" style="padding:30px 0"><i class="fas fa-list"></i><p>No playlists yet. Create one from the sidebar.</p></div>';
-      } else {
-        html += '<div class="playlist-grid">';
-        playlists.forEach((p) => {
-          const count = p.songs ? p.songs.length : 0;
-          html += `
-            <div class="playlist-card" data-id="${p._id}">
-              <div class="playlist-card-img">
-                <i class="fas fa-music"></i>
-              </div>
-              <div class="playlist-card-body">
-                <div class="playlist-card-name">${p.name}</div>
-                <div class="playlist-card-count">${count} song${count !== 1 ? 's' : ''}</div>
-              </div>
-            </div>
-          `;
-        });
-        html += '</div>';
-      }
+      html += '<div class="library-table">';
+      html += '<div class="library-table-header">';
+      html += '<span></span>';
+      html += '<span>Title</span>';
+      html += '<span>Artist</span>';
+      html += '<span class="library-row-album">Album</span>';
+      html += '<span>Duration</span>';
+      html += '<span></span>';
       html += '</div>';
 
-      lib.innerHTML = html;
-
-      lib.querySelectorAll('.playlist-card').forEach((card) => {
-        card.addEventListener('click', () => showPlaylistDetail(card.dataset.id));
+      allSongs.forEach(song => {
+        html += renderLibraryRow(song, likedIds);
       });
+
+      html += '</div>';
+      lib.innerHTML = html;
+      lib._context = allSongs;
     } catch (err) {
       lib.innerHTML = renderEmpty('Failed to load library');
     }
